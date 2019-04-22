@@ -1,11 +1,14 @@
-import os
+import ptvsd
+# ptvsd.enable_attach(address=("0.0.0.0", 8033))
+# print("wait for remote attachment")
+# ptvsd.wait_for_attach()
 
+import os
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import cv2
 import time
 import argparse
 import numpy as np
-from PIL import Image
 
 # FaceModel must be imported before COCODemo, otherwise
 # there will be a serious conflict leading to kernel restart
@@ -16,9 +19,8 @@ from rcnn import COCODemo as PersonModel
 # Set GPU limit for Keras
 import tensorflow as tf
 import keras.backend.tensorflow_backend as KTF
-
 tfconfig = tf.ConfigProto()
-tfconfig.gpu_options.allow_growth = True  # 不全部占满显存, 按需分配
+tfconfig.gpu_options.allow_growth = True
 session = tf.Session(config=tfconfig)
 KTF.set_session(session)
 
@@ -106,8 +108,8 @@ def get_person_masks(image, person_model, face_model, noisy_filter_size):
         mid_x = (x + u) // 2
         # Take the intersection for Head
         head_mask = denoised_mask.copy()
-        head_mask[:left_y, :mid_x] = 255
-        head_mask[:right_y, mid_x:] = 255
+        head_mask[:left_y, x:mid_x] = 255
+        head_mask[:right_y, mid_x:u] = 255
         head_mask = person_mask & head_mask
         # Take the difference set for Body
         diff_mask = person_mask & (~head_mask)
@@ -152,7 +154,8 @@ def main(args):
     cfg.merge_from_file(args.config_file)
     # cfg.merge_from_list(args.opts)
     cfg.freeze()
-    # body_model must be instantiated before face_model, otherwise there may be a serious conflict leading to kernel restart
+    # body_model must be instantiated before face_model,
+    # otherwise there may be a serious conflict leading to kernel restart
     person_model = PersonModel(
         cfg,
         confidence_threshold=args.confidence_threshold,
